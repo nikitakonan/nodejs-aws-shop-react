@@ -1,7 +1,9 @@
 import React from "react";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import axios from "axios";
+import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import Snackbar, { SnackbarCloseReason } from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 type CSVFileImportProps = {
   url: string;
@@ -10,6 +12,18 @@ type CSVFileImportProps = {
 
 export default function CSVFileImport({ url, title }: CSVFileImportProps) {
   const [file, setFile] = React.useState<File | null>();
+  const [error, setError] = React.useState<string | null>();
+
+  const handleClose = (
+    _event?: React.SyntheticEvent | Event,
+    reason?: SnackbarCloseReason
+  ) => {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setError(null);
+  };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -30,30 +44,48 @@ export default function CSVFileImport({ url, title }: CSVFileImportProps) {
     console.log("File to upload: ", file.name);
 
     try {
+      const headers: AxiosRequestConfig["headers"] = {};
+      const token = localStorage.getItem("authorization_token");
+      if (token) {
+        headers["Authorization"] = token;
+      }
+
       const response = await axios({
         method: "GET",
         url,
-        params: {
-          name: encodeURIComponent(file.name),
-        },
-        headers: {
-          Authorization: `Basic ${localStorage.getItem("authorization_token")}`,
-        },
+        params: { name: encodeURIComponent(file.name) },
+        headers,
       });
-      const result = await fetch(response.data, {
-        method: "PUT",
-        body: file,
-      });
-      if (result.ok) {
-        console.log("Successfully uploaded!");
-        setFile(null);
+      console.log("response", response);
+      const result = await axios.put(response.data, file);
+      console.log("Successfully uploaded!", result.data);
+      setFile(null);
+    } catch (reason) {
+      if (reason instanceof AxiosError) {
+        let errorMessage = reason.message;
+        if (reason.response) {
+          errorMessage =
+            reason.response.status + ": " + reason.response.data.message;
+        }
+        setError(errorMessage);
+      } else {
+        console.error(reason);
       }
-    } catch (error) {
-      console.error(error);
     }
   };
   return (
     <Box>
+      <Snackbar
+        open={!!error}
+        onClose={handleClose}
+        message={error}
+        autoHideDuration={5000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert onClose={handleClose} severity="error" variant="filled">
+          {error}
+        </Alert>
+      </Snackbar>
       <Typography variant="h6" gutterBottom>
         {title}
       </Typography>
