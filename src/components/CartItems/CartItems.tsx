@@ -5,13 +5,29 @@ import ListItemText from "@mui/material/ListItemText";
 import { CartItem } from "~/models/CartItem";
 import { formatAsPrice } from "~/utils/utils";
 import AddProductToCart from "~/components/AddProductToCart/AddProductToCart";
+import { useAvailableProducts } from "~/queries/products";
 
 type CartItemsProps = {
   items: CartItem[];
   isEditable: boolean;
 };
 
-export default function CartItems({ items, isEditable }: CartItemsProps) {
+export default function CartItems({
+  items: cartItems,
+  isEditable,
+}: CartItemsProps) {
+  const { data: products = [] } = useAvailableProducts();
+
+  const items = cartItems.map((cartItem) => {
+    const product = products.find(
+      (product) => product.id === cartItem.product.id
+    );
+    return {
+      ...cartItem,
+      product: product || cartItem.product,
+    };
+  });
+
   const totalPrice: number = items.reduce(
     (total, item) => item.count * item.product.price + total,
     0
